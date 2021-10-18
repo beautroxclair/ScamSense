@@ -1,8 +1,20 @@
 import requests
 import json
+import csv
+
+
 tokenAddress = "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"
 
-# given the above token address GET list of wallets and GET list of transactions
+"""
+----------------------------------------------------------------------
+
+Simple Query Post Function with API Key Included
+To Add:
+- better error handling for status code responses
+-- Functionality to switch between API Keys if request limit has been reached
+
+----------------------------------------------------------------------
+"""
 
 
 def run_query(query):  # A simple function to use requests.post to make the API call.
@@ -16,14 +28,22 @@ def run_query(query):  # A simple function to use requests.post to make the API 
                         query))
 
 
-# The GraphQL query
+"""
+----------------------------------------------------------------------
+GraphQL Query Definitions
+----------------------------------------------------------------------
+"""
 
-query = """
+
+# Returns token transfers ascending by block with hard coded limit 
+# Tested and working up to 100,000 results but more may be possible in single query
+
+tokenTransferQuery = """
 {
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 100000, asc: "block.height"}
+      options: {limit: 5, asc: "block.height"}
     ) 
     {
       amount
@@ -46,11 +66,41 @@ query = """
   }
 }
 """
+
+
+
+"""
+----------------------------------------------------------------------
+JSON -> CSV Conversion Module
+----------------------------------------------------------------------
+"""
+
+
+with open("transfers.json", "r") as file:
+	with open("transfers.csv", "w") as csvfile:
+		for item in file
+
+
+
+"""
+----------------------------------------------------------------------
+Query Execution 
+----------------------------------------------------------------------
+"""
+
 result = run_query(query)  # Execute the query
 prettyResult = json.dumps(result, indent = 4, sort_keys= True)
 
 with open("transfers.json", "w") as outfile:
     outfile.write(prettyResult)
+
+
+"""
+----------------------------------------------------------------------
+Upload Module
+----------------------------------------------------------------------
+"""
+
 
 
 # Token Transfers
