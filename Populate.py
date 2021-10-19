@@ -43,7 +43,7 @@ tokenTransferQuery = """
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 5, asc: "block.height"}
+      options: {limit: 100000, asc: "block.height"}
     ) 
     {
       amount
@@ -71,28 +71,60 @@ tokenTransferQuery = """
 
 """
 ----------------------------------------------------------------------
+Query Execution 
+----------------------------------------------------------------------
+"""
+
+result = run_query(tokenTransferQuery)  # Execute the query
+
+
+
+prettyResult = json.dumps(result, indent = 4, sort_keys= True)
+
+with open("transfers.json", "w") as outfile:
+    outfile.write(prettyResult)
+
+
+
+"""
+----------------------------------------------------------------------
 JSON -> CSV Conversion Module
 ----------------------------------------------------------------------
 """
 
 
 with open("transfers.json", "r") as file:
-	with open("transfers.csv", "w") as csvfile:
-		for item in file
+	data = json.load(file)
+	with open("wallets.csv", "w") as walletsCSV:
+		with open("sends.csv", "w") as sendsCSV:
+			writer1 = csv.writer(walletsCSV)
+			writer2 = csv.writer(sendsCSV)
+
+			writer1.writerow([':ID', ':LABEL'])
+			writer2.writerow([':START_ID', ':END_ID', ":TYPE", "amount:float", "block", "time", "hash"])
+
+			for item in data["data"]["ethereum"]["transfers"]:
+
+				amount = item["amount"]
+				block = item["block"]["height"]
+				timestamp = item["block"]["timestamp"]["time"]
+				receiver = item["receiver"]["address"]
+				sender = item["sender"]["address"]
+				txHash = item["transaction"]["hash"]
+
+				writer1.writerow([sender, "WALLET"])
+				writer1.writerow([receiver, "WALLET"])
+
+				writer2.writerow([sender, receiver, "SEND", amount, block, timestamp, txHash])
+				
+	
+			
 
 
 
-"""
-----------------------------------------------------------------------
-Query Execution 
-----------------------------------------------------------------------
-"""
 
-result = run_query(query)  # Execute the query
-prettyResult = json.dumps(result, indent = 4, sort_keys= True)
 
-with open("transfers.json", "w") as outfile:
-    outfile.write(prettyResult)
+
 
 
 """
