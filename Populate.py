@@ -142,6 +142,8 @@ Upload Module
 """
 ----------------------------------------------------------------------
 Queries to be implemented
+----------------------------------------------------------------------
+
 
 Token Transfers
 {
@@ -287,8 +289,57 @@ gasPrice
 gas
 }}
 }}
-----------------------------------------------------------------------
+
 """
+
+
+"""
+----------------------------------------------------------------------
+Resources
+----------------------------------------------------------------------
+
+Cypher Query Documentation:
+https://neo4j.com/developer/cypher/
+
+Neo4j and Machine Learning:
+https://neo4j.com/blog/liberating-knowledge-machine-learning-techniques-neo4j/
+
+Great Video on Neo4j Imports:
+https://www.youtube.com/watch?v=oXziS-PPIUA
+
+GraphQL Query Structure IDE:
+https://graphql.bitquery.io/ide
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+
+
+
+
 
 
 
