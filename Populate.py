@@ -43,7 +43,7 @@ tokenTransferQuery = """
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 100000, asc: "block.height"}
+      options: {limit: 1000, asc: "block.height"}
     ) 
     {
       amount
@@ -133,152 +133,164 @@ Upload Module
 ----------------------------------------------------------------------
 """
 
+# TODO
+#	Not sure if we need an inline upload, may accomplish this on the command line, but may be nice to code in here
+#	If for no other reason then we don't have to deal with compatibility Issues
+#	Will Certainly be necessary if we host the DB in the cloud
 
 
-# Token Transfers
-# {
-#   ethereum(network: bsc) {
-#     transfers(
-#       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-#       options: {limit: 10}
-#     ) {
-#       amount
-#       receiver {
-#         address
-#       }
-#       sender {
-#         address
-#       }
-#       block {
-#         timestamp {
-#           time
-#         }
-#         height
-#       }
-#       transaction {
-#         hash
-#       }
-#       count
-#     }
-#   }
-# }
+"""
+----------------------------------------------------------------------
+Queries to be implemented
 
-#  DEX Trades
-# {
-# 	ethereum(network: bsc){
-# 		dexTrades(options: {limit: 100, desc: "block.height"}, exchangeName: {in:["Pancake","Pancake v2"]},
-# 		baseCurrency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"})
-# 		{
-# 			transaction {
-# 				hash
-# 			}
-# 			smartContract{
-# 				address{
-# 					address
-# 				}
-# 				contractType
-# 				currency{
-# 					name
-# 				}
-# 			}
-# 			tradeIndex
-# 			date {
-# 				date
-# 			}
-# 			block {
-# 				height
-# 			}
-# 			buyAmount
-# 			buyAmountInUsd: buyAmount(in: USD)
-# 			buyCurrency {
-# 				symbol
-# 				address
-# 			}
-# 			sellAmount
-# 			sellAmountInUsd: sellAmount(in: USD)
-# 			sellCurrency {
-# 				symbol
-# 				address
-# 			}
-# 			sellAmountInUsd: sellAmount(in: USD)
-# 			tradeAmount(in: USD)
-# 			transaction{
-# 				gasValue
-# 				gasPrice
-# 				gas
-# 			}
-# 		}
-# 	}
-# }
+Token Transfers
+{
+  ethereum(network: bsc) {
+    transfers(
+      currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
+      options: {limit: 10}
+    ) {
+      amount
+      receiver {
+        address
+      }
+      sender {
+        address
+      }
+      block {
+        timestamp {
+          time
+        }
+        height
+      }
+      transaction {
+        hash
+      }
+      count
+    }
+  }
+}
 
-#Pool Info
-# smartContractAddress:
-# {is:"0x1b96b92314c44b159149f7e0303511fb2fc4774f"},
-# date: {since:"2020-12-12", till: "2020-12-12"}
-# ){
-# count
-# tradeAmount(in:USD)
-# }}
-# }
+ DEX Trades
+{
+	ethereum(network: bsc){
+		dexTrades(options: {limit: 100, desc: "block.height"}, exchangeName: {in:["Pancake","Pancake v2"]},
+		baseCurrency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"})
+		{
+			transaction {
+				hash
+			}
+			smartContract{
+				address{
+					address
+				}
+				contractType
+				currency{
+					name
+				}
+			}
+			tradeIndex
+			date {
+				date
+			}
+			block {
+				height
+			}
+			buyAmount
+			buyAmountInUsd: buyAmount(in: USD)
+			buyCurrency {
+				symbol
+				address
+			}
+			sellAmount
+			sellAmountInUsd: sellAmount(in: USD)
+			sellCurrency {
+				symbol
+				address
+			}
+			sellAmountInUsd: sellAmount(in: USD)
+			tradeAmount(in: USD)
+			transaction{
+				gasValue
+				gasPrice
+				gas
+			}
+		}
+	}
+}
 
-# Pool Info Date wise
-# {
-# ethereum (network: bsc){
-# dexTrades(options: {desc: "date.date"},
-# smartContractAddress:
-# {is:"0x1b96b92314c44b159149f7e0303511fb2fc4774f"}
-# ){
-# count
-# tradeAmount(in:USD)
-# date{
-# date(format: "%y-%m-%d")
-# }}
-# }}
+Pool Info
+smartContractAddress:
+{is:"0x1b96b92314c44b159149f7e0303511fb2fc4774f"},
+date: {since:"2020-12-12", till: "2020-12-12"}
+){
+count
+tradeAmount(in:USD)
+}}
+}
 
-# All Trades of a pool
-# {
-# ethereum(network: bsc){
-# dexTrades(options: {limit: 1, desc: "block.height"},
-# exchangeName: {in:["Pancake","Pancake v2"]},
-# smartContractAddress: {is: "0x1b96b92314c44b159149f7e0303511fb2fc4774f"}){
-# transaction {
-# hash
-# }
-# smartContract{
-# address{
-# address
-# }
-# contractType
-# currency{
-# name
-# }}
-# tradeIndex
-# date {
-# date
-# }
-# block {
-# height
-# }
-# buyAmount
-# buyAmountInUsd: buyAmount(in: USD)
-# buyCurrency {
-# symbol
-# address
-# }
-# sellAmount
-# sellAmountInUsd: sellAmount(in: USD)
-# sellCurrency {
-# symbol
-# address
-# }
-# sellAmountInUsd: sellAmount(in: USD)
-# tradeAmount(in: USD)
-# transaction{
-# gasValue
-# gasPrice
-# gas
-# }}
-# }}
+Pool Info Date wise
+{
+ethereum (network: bsc){
+dexTrades(options: {desc: "date.date"},
+smartContractAddress:
+{is:"0x1b96b92314c44b159149f7e0303511fb2fc4774f"}
+){
+count
+tradeAmount(in:USD)
+date{
+date(format: "%y-%m-%d")
+}}
+}}
+
+All Trades of a pool
+{
+ethereum(network: bsc){
+dexTrades(options: {limit: 1, desc: "block.height"},
+exchangeName: {in:["Pancake","Pancake v2"]},
+smartContractAddress: {is: "0x1b96b92314c44b159149f7e0303511fb2fc4774f"}){
+transaction {
+hash
+}
+smartContract{
+address{
+address
+}
+contractType
+currency{
+name
+}}
+tradeIndex
+date {
+date
+}
+block {
+height
+}
+buyAmount
+buyAmountInUsd: buyAmount(in: USD)
+buyCurrency {
+symbol
+address
+}
+sellAmount
+sellAmountInUsd: sellAmount(in: USD)
+sellCurrency {
+symbol
+address
+}
+sellAmountInUsd: sellAmount(in: USD)
+tradeAmount(in: USD)
+transaction{
+gasValue
+gasPrice
+gas
+}}
+}}
+----------------------------------------------------------------------
+"""
+
+
 
 
 
