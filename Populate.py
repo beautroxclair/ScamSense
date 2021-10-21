@@ -30,6 +30,46 @@ def run_query(query):  # A simple function to use requests.post to make the API 
 
 """
 ----------------------------------------------------------------------
+JSON -> CSV Conversion Module
+----------------------------------------------------------------------
+"""
+
+
+def export_to_csv(data):
+
+	with open("wallets.csv", "w") as walletsCSV:
+		with open("sends.csv", "w") as sendsCSV:
+			writer1 = csv.writer(walletsCSV)
+			writer2 = csv.writer(sendsCSV)
+
+			writer1.writerow([':ID', ':LABEL'])
+			writer2.writerow([':START_ID', ':END_ID', ":TYPE", "amount:float", "block", "time", "hash"])
+
+			for item in data["data"]["ethereum"]["transfers"]:
+
+				amount = item["amount"]
+				block = item["block"]["height"]
+				timestamp = item["block"]["timestamp"]["time"]
+				receiver = item["receiver"]["address"]
+				sender = item["sender"]["address"]
+				txHash = item["transaction"]["hash"]
+
+				writer1.writerow([sender, "WALLET"])
+				writer1.writerow([receiver, "WALLET"])
+
+				writer2.writerow([sender, receiver, "SEND", amount, block, timestamp, txHash])
+				
+	
+			
+
+
+
+
+
+
+
+"""
+----------------------------------------------------------------------
 GraphQL Query Definitions
 ----------------------------------------------------------------------
 """
@@ -43,7 +83,7 @@ tokenTransferQuery = """
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 1000, asc: "block.height"}
+      options: {limit: 20, asc: "block.height"}
     ) 
     {
       amount
@@ -76,53 +116,7 @@ Query Execution
 """
 
 result = run_query(tokenTransferQuery)  # Execute the query
-
-
-
-prettyResult = json.dumps(result, indent = 4, sort_keys= True)
-
-with open("transfers.json", "w") as outfile:
-    outfile.write(prettyResult)
-
-
-
-"""
-----------------------------------------------------------------------
-JSON -> CSV Conversion Module
-----------------------------------------------------------------------
-"""
-
-
-with open("transfers.json", "r") as file:
-	data = json.load(file)
-	with open("wallets.csv", "w") as walletsCSV:
-		with open("sends.csv", "w") as sendsCSV:
-			writer1 = csv.writer(walletsCSV)
-			writer2 = csv.writer(sendsCSV)
-
-			writer1.writerow([':ID', ':LABEL'])
-			writer2.writerow([':START_ID', ':END_ID', ":TYPE", "amount:float", "block", "time", "hash"])
-
-			for item in data["data"]["ethereum"]["transfers"]:
-
-				amount = item["amount"]
-				block = item["block"]["height"]
-				timestamp = item["block"]["timestamp"]["time"]
-				receiver = item["receiver"]["address"]
-				sender = item["sender"]["address"]
-				txHash = item["transaction"]["hash"]
-
-				writer1.writerow([sender, "WALLET"])
-				writer1.writerow([receiver, "WALLET"])
-
-				writer2.writerow([sender, receiver, "SEND", amount, block, timestamp, txHash])
-				
-	
-			
-
-
-
-
+export_to_csv(result)
 
 
 
@@ -137,6 +131,22 @@ Upload Module
 #	Not sure if we need an inline upload, may accomplish this on the command line, but may be nice to code in here
 #	If for no other reason then we don't have to deal with compatibility Issues
 #	Will Certainly be necessary if we host the DB in the cloud
+
+"""
+----------------------------------------------------------------------
+Naiive Load commands in Neo4j Desktop
+
+
+LOAD CSV WITH HEADERS FROM "file:///wallets.csv" AS row
+MERGE (w:Wallet {wallet_id: row[":ID"]})
+
+LOAD CSV WITH HEADERS FROM "file///transfers.csv" AS row
+MATCH (s:Sender {wallet_id: row[":START_ID"]})
+MATCH (r:Receiver {wallet_id: row[":END_ID"]})
+CREATE (s)-[:SEND {amount:row["amount:float"], block:row.block, time:row.time, hash:row.hash}]->(r)
+
+----------------------------------------------------------------------
+"""
 
 
 """
@@ -300,48 +310,18 @@ Resources
 
 Cypher Query Documentation:
 https://neo4j.com/developer/cypher/
+https://neo4j.com/docs/cypher-manual/current/clauses/
 
 Neo4j and Machine Learning:
 https://neo4j.com/blog/liberating-knowledge-machine-learning-techniques-neo4j/
 
 Great Video on Neo4j Imports:
 https://www.youtube.com/watch?v=oXziS-PPIUA
+https://github.com/johnymontana/neo4j-datasets/tree/master/yelp/src
 
 GraphQL Query Structure IDE:
 https://graphql.bitquery.io/ide
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """
-
-
-
-
-
-
-
-
-
