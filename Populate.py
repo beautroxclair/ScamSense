@@ -83,7 +83,7 @@ tokenTransferQuery = """
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 20, asc: "block.height"}
+      options: {limit: 100000, asc: "block.height"}
     ) 
     {
       amount
@@ -140,9 +140,9 @@ Naiive Load commands in Neo4j Desktop
 LOAD CSV WITH HEADERS FROM "file:///wallets.csv" AS row
 MERGE (w:Wallet {wallet_id: row[":ID"]})
 
-LOAD CSV WITH HEADERS FROM "file///transfers.csv" AS row
-MATCH (s:Sender {wallet_id: row[":START_ID"]})
-MATCH (r:Receiver {wallet_id: row[":END_ID"]})
+LOAD CSV WITH HEADERS FROM "file:///sends.csv" AS row
+MATCH (s:Wallet {wallet_id: row[":START_ID"]})
+MATCH (r:Wallet {wallet_id: row[":END_ID"]})
 CREATE (s)-[:SEND {amount:row["amount:float"], block:row.block, time:row.time, hash:row.hash}]->(r)
 
 ----------------------------------------------------------------------
@@ -183,7 +183,57 @@ Token Transfers
   }
 }
 
- DEX Trades
+Token Amounts of Wallets
+{
+  ethereum(network: bsc) {
+    address(
+      address: {in: ["0xff3dd404afba451328de089424c74685bf0a43c9", "0xacf29a85e341c7fb05d2755e2f83c36afe5cfeeb", "0x8c128dba2cb66399341aa877315be1054be75da8"]}
+    ) {
+      address
+      smartContract {
+        contractType
+      }
+      balances {
+        value
+        currency {
+          address
+          symbol
+          tokenType
+        }
+      }
+    }
+  }
+}
+
+
+Possibe Responses:(?)
+
+{
+  "ethereum": {
+    "address": [
+      {
+        "address": "0xff3dd404afba451328de089424c74685bf0a43c9",
+        "smartContract": {
+          "contractType": "DEX"
+        }
+      },
+      {
+        "address": "0xacf29a85e341c7fb05d2755e2f83c36afe5cfeeb",
+        "smartContract": null
+      },
+      {
+        "address": "0x8c128dba2cb66399341aa877315be1054be75da8",
+        "smartContract": {
+          "contractType": "Generic"
+        }
+      }
+    ]
+  }
+}
+
+
+
+DEX Trades
 {
 	ethereum(network: bsc){
 		dexTrades(options: {limit: 100, desc: "block.height"}, exchangeName: {in:["Pancake","Pancake v2"]},
@@ -312,6 +362,9 @@ Cypher Query Documentation:
 https://neo4j.com/developer/cypher/
 https://neo4j.com/docs/cypher-manual/current/clauses/
 
+Neo4j Importing From Dump
+https://tbgraph.wordpress.com/2020/11/11/dump-and-load-a-database-in-neo4j-desktop/
+
 Neo4j and Machine Learning:
 https://neo4j.com/blog/liberating-knowledge-machine-learning-techniques-neo4j/
 
@@ -321,6 +374,8 @@ https://github.com/johnymontana/neo4j-datasets/tree/master/yelp/src
 
 GraphQL Query Structure IDE:
 https://graphql.bitquery.io/ide
+
+
 
 
 
