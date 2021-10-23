@@ -118,6 +118,9 @@ def get_all_transfers(token, chunk):
 					date {
 						date
 					}
+					transaction {
+						hash
+					}
 				}
 			}
 		}
@@ -131,7 +134,7 @@ def get_all_transfers(token, chunk):
 		"after": None
 	}
 
-	# Make First Call
+	# # Make First Call
 	# result = run_query(transferQuery, transferQueryParams)
 
 	# # Testing
@@ -144,31 +147,94 @@ def get_all_transfers(token, chunk):
 	#Write to CSV
 	with open("transfers.json", "r") as file:
 
+		# Create CSVs with Headers
+		with open("address.csv", "w") as addressCSV:
+			writer = csv.writer(addressCSV)
+			writer.writerow(['Public Key', 'Type', 'Kind'])
+
+		with open("sends.csv", "w") as sendsCSV:
+			writer = csv.writer(sendsCSV)
+			writer.writerow(["Start_ID", "END_ID", "Type", "Amount", "Block", "Time", "hash"])
+
+
 		result= json.load(file)
 		iterations = 0
 		while(len(result["data"]["ethereum"]["transfers"]) == chunk and iterations < 1):
 
 			walletsWithToken = set()
-			
-			for item in result["data"]["ethereum"]["transfers"]:
-				if item["receiver"]["smartContract"]["contractType"] is None:
-					walletsWithToken.add(item["receiver"]["address"])
+			smartContractSet = set()
+			DEXset = set()
+			Tokenset = set()
+
+			lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
+
+			with open("sends.csv", "a") as sendsCSV:
+				writer = csv.writer(sendsCSV)
+
+				for item in result["data"]["ethereum"]["transfers"]:
+
+
+					# Write to sends.csv
+
+					writer.writerow([
+						item["sender"]["address"],
+						item["receiver"]["address"],
+						"SEND",
+						item["amount"],
+						item["block"]["height"],
+						item["block"]["timestamp"]["iso8601"],
+						item["transaction"]["hash"]
+					])
+
+
+					# Separate Different Address Types into unique sets
+
+					if item["receiver"]["smartContract"]["contractType"] is None:
+						walletsWithToken.add(item["receiver"]["address"])
+					elif item["receiver"]["smartContract"]["contractType"] == "DEX":
+						DEXset.add(item["receiver"]["address"])
+					elif item["receiver"]["smartContract"]["contractType"] == "Token":
+						Tokenset.add(item["receiver"]["address"])
+					else:
+						smartContractSet.add(item["receiver"]["address"])
+
+					if item["sender"]["smartContract"]["contractType"] is None:
+						walletsWithToken.add(item["sender"]["address"])
+					elif item["sender"]["smartContract"]["contractType"] == "DEX":
+						DEXset.add(item["sender"]["address"])
+					elif item["sender"]["smartContract"]["contractType"] == "Token":
+						Tokenset.add(item["sender"]["address"])
+					else:
+						smartContractSet.add(item["sender"]["address"])
+
+					# Perform Date Check
+
+					if item["block"]["timestamp"]["iso8601"] > lastDate:
+						lastDate = item["block"]["timestamp"]["iso8601"]
 
 
 			print(len(list(walletsWithToken)))
+			print(len(list(DEXset)))
+			print(len(list(smartContractSet)))
+			print(len(list(Tokenset)))
+
 			iterations+=1
 
-
-	#Save Final Transaction Date (if(finalDate >= transactionDate): finalDate = transactionDate)
-	#Build in check to see how many times property changes to see if final item is always last
-	#Insert finalDate into next call and call until len(return) < limit
-		#Write to END of CSV
 
 """
 ----------------------------------------------------------------------
 Get All Tokens
 ----------------------------------------------------------------------
 """
+def get_all_tokens(walletList):
+
+	with open("tokens.csv", "w") as tokensCSV:
+		writer = csv.writer(tokensCSV)
+		writer.writerow(["Token_ID", "Type", "Symbol"])
+
+	with open("has.csv", "w") as hasCSV:
+		writer = csv.writer(hasCSV)
+		writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
 
 
 
@@ -178,7 +244,7 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-get_all_transfers(tokenAddress_SAFEMOON,1000)
+get_all_transfers(tokenAddress_SAFEMOON,2000)
 
 # result = run_query(tokenTransferQuery)  # Execute the query
 
