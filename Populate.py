@@ -3,7 +3,22 @@ import json
 import csv
 
 
-tokenAddress = "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"
+tokenAddress_SAFEMOON= "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3" #9.29mil transfers
+tokenAddress_SAFEMOONCASH = "0xf017e2773e4ee0590c81d79ccbcf1b2de1d22877" # 891k transfers
+tokenAddress_SLIME = "0x4fcfa6cc8914ab455b5b33df916d90bfe70b6ab1" # 863k Transfers
+tokenAddress_FOX = "0xfad8e46123d7b4e77496491769c167ff894d2acb" #435k Transfers
+tokenAddress_WOOF = "0x9e26c50b8a3b7652c3fd2b378252a8647a0c9268" #440k Transfers "Shibance token"
+tokenAddress_POOCOIN = "0xb27adaffb9fea1801459a1a81b17218288c097cc" #433k Transfers
+tokenAddress_PORNROCKET = "0xcf9f991b14620f5ad144eec11f9bc7bf08987622" #419k Transfers
+tokenAddress_CROW = "0xcc2e12a9b5b75360c6fbf23b584c275d52cddb0e" # 405k Transfers
+tokenAddress_DaddyDoge = "0x7cce94c0b2c8ae7661f02544e62178377fe8cf92" #227k Transfers
+tokenAddress_SAFETESLA = "0xa1efce38cb265af369e891bc3026d0285545d4e5" #219k Transfers
+tokenAddress_SOUPS = "0x69f27e70e820197a6e495219d9ac34c8c6da7eee" #218k transfers
+tokenAddress_PASTA = "0xab9d0fae6eb062f2698c2d429a1be9185a5d4f6e" #212k transfers
+tokenAddress_PirateCoin = "0x041640ea980e3fe61e9c4ca26d9007bc70094c15" # 211k transfers
+tokenAddress_WEAPON = "0x3664d30a612824617e3cf6935d6c762c8b476eda" #178k Transfers
+tokenAddress_MOONRISE = "0x7ee7f14427cc41d6db17829eb57dc74a26796b9d" #187k Transfers
+
 
 """
 ----------------------------------------------------------------------
@@ -17,10 +32,10 @@ To Add:
 """
 
 
-def run_query(query):  # A simple function to use requests.post to make the API call.
+def run_query(query, variables = {}):  # A simple function to use requests.post to make the API call.
     headers = {'X-API-KEY': 'BQYq2Lq2oo8E55XwYQkCwb8zfA3kb4QT'}
     request = requests.post('https://graphql.bitquery.io/',
-                            json={'query': query}, headers=headers)
+                            json={'query': query, 'variables': variables}, headers=headers)
     if request.status_code == 200:
         return request.json()
     else:
@@ -42,8 +57,8 @@ def export_to_csv(data):
 			writer1 = csv.writer(walletsCSV)
 			writer2 = csv.writer(sendsCSV)
 
-			writer1.writerow([':ID', ':LABEL'])
-			writer2.writerow([':START_ID', ':END_ID', ":TYPE", "amount:float", "block", "time", "hash"])
+			writer1.writerow(['Public Key', 'Type', 'Tokens Held'])
+			writer2.writerow([':START_ID', ':END_ID', ":TYPE"])
 
 			for item in data["data"]["ethereum"]["transfers"]:
 
@@ -59,8 +74,118 @@ def export_to_csv(data):
 
 				writer2.writerow([sender, receiver, "SEND", amount, block, timestamp, txHash])
 				
+
+
+"""
+----------------------------------------------------------------------
+Get All Transfers
+----------------------------------------------------------------------
+"""
+def get_all_transfers(token, chunk):
+
+	#Define Query and Paramaters
+	transferQuery = """
+		query ($network: EthereumNetwork!, $token: String!, $limit: Int!, $after: ISO8601DateTime){
+			ethereum(network: $network) {
+				transfers(
+					currency: {is:$token}
+					options: {
+						limit: $limit
+				        asc: "date.date"
+				        desc: "block.timestamp.iso8601"
+					}
+					date: {after: $after}	
+				){
+					amount
+					receiver {
+						address
+						smartContract {
+							contractType
+						}
+					}
+					sender {
+						address
+						smartContract {
+							contractType
+						}
+					}
+					block {
+						timestamp {
+							iso8601
+						}
+						height
+					}
+					date {
+						date
+					}
+				}
+			}
+		}
+
+	"""
+
+	transferQueryParams = {
+		"network": "bsc",
+		"token": token,
+		"limit": chunk,
+		"after": None
+	}
+
+	# Make First Call
+	# result = run_query(transferQuery, transferQueryParams)
+
+	# # Testing
+	# prettyResult = json.dumps(result, indent = 4, sort_keys= True)
+
+	# with open("transfers.json", "w") as outfile:
+	#     outfile.write(prettyResult)
+
 	
+	#Write to CSV
+	with open("transfers.json", "r") as file:
+
+		result= json.load(file)
+		iterations = 0
+		while(len(result["data"]["ethereum"]["transfers"]) == chunk and iterations < 1):
+
+			walletsWithToken = set()
 			
+			for item in result["data"]["ethereum"]["transfers"]:
+				if item["receiver"]["smartContract"]["contractType"] is None:
+					walletsWithToken.add(item["receiver"]["address"])
+
+
+			print(len(list(walletsWithToken)))
+			iterations+=1
+
+
+	#Save Final Transaction Date (if(finalDate >= transactionDate): finalDate = transactionDate)
+	#Build in check to see how many times property changes to see if final item is always last
+	#Insert finalDate into next call and call until len(return) < limit
+		#Write to END of CSV
+
+"""
+----------------------------------------------------------------------
+Get All Tokens
+----------------------------------------------------------------------
+"""
+
+
+
+"""
+----------------------------------------------------------------------
+Query Execution 
+----------------------------------------------------------------------
+"""
+
+get_all_transfers(tokenAddress_SAFEMOON,1000)
+
+# result = run_query(tokenTransferQuery)  # Execute the query
+
+# prettyResult = json.dumps(result, indent = 2, sort_keys= True) # Print for Testing
+# print(prettyResult)
+
+# export_to_csv(result) # Send to CSV Converter
 
 
 
@@ -83,42 +208,56 @@ tokenTransferQuery = """
   ethereum(network: bsc) {
     transfers(
       currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 100000, asc: "block.height"}
+      options: {limit: 10, asc: "block.height"}
     ) 
     {
       amount
       receiver {
         address
+        smartContract{
+        	contractType
+        }
       }
       sender {
         address
+        smartContract{
+        	contractType
+        }
       }
       block {
         timestamp {
-          time
+          iso8601
         }
         height
-      }
-      transaction {
-        hash
       }
     }
   }
 }
 """
 
-
-
+tokenHoldingQuery = """
+($tokenList: [String!])
+{
+  ethereum(network: bsc) {
+    address(
+      address: {in:$tokenList}
+    ) {
+      address
+      smartContract {
+        contractType
+      }
+      balances {
+        value
+        currency {
+          address
+          symbol
+          tokenType
+        }
+      }
+    }
+  }
+}
 """
-----------------------------------------------------------------------
-Query Execution 
-----------------------------------------------------------------------
-"""
-
-result = run_query(tokenTransferQuery)  # Execute the query
-export_to_csv(result)
-
-
 
 
 """
