@@ -85,46 +85,45 @@ def get_all_transfers(token, chunk):
 
 	#Define Query and Paramaters
 	transferQuery = """
-		query ($network: EthereumNetwork!, $token: String!, $limit: Int!, $after: ISO8601DateTime){
-			ethereum(network: $network) {
-				transfers(
-					currency: {is:$token}
-					options: {
-						limit: $limit
-				        asc: "date.date"
-				        desc: "block.timestamp.iso8601"
+	query ($network: EthereumNetwork!, $token: String!, $limit: Int!, $after: ISO8601DateTime){
+		ethereum(network: $network) {
+			transfers(
+				currency: {is:$token}
+				options: {
+					limit: $limit
+			        asc: "date.date"
+			        desc: "block.timestamp.iso8601"
+				}
+				date: {after: $after}	
+			){
+				amount
+				receiver {
+					address
+					smartContract {
+						contractType
 					}
-					date: {after: $after}	
-				){
-					amount
-					receiver {
-						address
-						smartContract {
-							contractType
-						}
+				}
+				sender {
+					address
+					smartContract {
+						contractType
 					}
-					sender {
-						address
-						smartContract {
-							contractType
-						}
+				}
+				block {
+					timestamp {
+						iso8601
 					}
-					block {
-						timestamp {
-							iso8601
-						}
-						height
-					}
-					date {
-						date
-					}
-					transaction {
-						hash
-					}
+					height
+				}
+				date {
+					date
+				}
+				transaction {
+					hash
 				}
 			}
 		}
-
+	}
 	"""
 
 	transferQueryParams = {
@@ -134,39 +133,99 @@ def get_all_transfers(token, chunk):
 		"after": None
 	}
 
-	# # Make First Call
-	# result = run_query(transferQuery, transferQueryParams)
-
-	# # Testing
-	# prettyResult = json.dumps(result, indent = 4, sort_keys= True)
-
-	# with open("transfers.json", "w") as outfile:
-	#     outfile.write(prettyResult)
-
+	# Make First Call
+	result = run_query(transferQuery, transferQueryParams)
 	
-	#Write to CSV
-	with open("transfers.json", "r") as file:
 
-		# Create CSVs with Headers
-		with open("address.csv", "w") as addressCSV:
-			writer = csv.writer(addressCSV)
-			writer.writerow(['Public Key', 'Type', 'Kind'])
+	# Create CSVs with Headers
+	with open("address.csv", "w") as addressCSV:
+		writer = csv.writer(addressCSV)
+		writer.writerow(['Public Key', 'Type', 'Kind'])
 
-		with open("sends.csv", "w") as sendsCSV:
+	with open("sends.csv", "w") as sendsCSV:
+		writer = csv.writer(sendsCSV)
+		writer.writerow(["Start_ID", "END_ID", "Type", "Amount", "Block", "Time", "hash"])
+
+
+	walletsWithToken = set()
+	smartContractSet = set()
+	DEXset = set()
+	Tokenset = set()
+	iterations = 0
+
+	# Iterate through all transactions in batches of "chunk"
+	while True:
+
+		lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
+
+		with open("sends.csv", "a") as sendsCSV:
 			writer = csv.writer(sendsCSV)
-			writer.writerow(["Start_ID", "END_ID", "Type", "Amount", "Block", "Time", "hash"])
+
+			for item in result["data"]["ethereum"]["transfers"]:
 
 
-		result= json.load(file)
-		iterations = 0
-		while(len(result["data"]["ethereum"]["transfers"]) == chunk and iterations < 1):
+				# Write to sends.csv
 
-			walletsWithToken = set()
-			smartContractSet = set()
-			DEXset = set()
-			Tokenset = set()
+				writer.writerow([
+					item["sender"]["address"],
+					item["receiver"]["address"],
+					"SEND",
+					item["amount"],
+					item["block"]["height"],
+					item["block"]["timestamp"]["iso8601"],
+					item["transaction"]["hash"]
+				])
 
-			lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
+
+				# Separate Different Address Types into unique sets
+
+				if item["receiver"]["smartContract"]["contractType"] is None:
+					walletsWithToken.add(item["receiver"]["address"])
+				elif item["receiver"]["smartContract"]["contractType"] == "DEX":
+					DEXset.add(item["receiver"]["address"])
+				elif item["receiver"]["smartContract"]["contractType"] == "Token":
+					Tokenset.add(item["receiver"]["address"])
+				else:
+					smartContractSet.add(item["receiver"]["address"])
+
+				if item["sender"]["smartContract"]["contractType"] is None:
+					walletsWithToken.add(item["sender"]["address"])
+				elif item["sender"]["smartContract"]["contractType"] == "DEX":
+					DEXset.add(item["sender"]["address"])
+				elif item["sender"]["smartContract"]["contractType"] == "Token":
+					Tokenset.add(item["sender"]["address"])
+				else:
+					smartContractSet.add(item["sender"]["address"])
+
+				# Perform Date Check
+				# Needs Debugging - Not Getting all Transfers and I suspect the problem lies here
+
+				if item["block"]["timestamp"]["iso8601"] > lastDate:
+					lastDate = item["block"]["timestamp"]["iso8601"]
+
+		newDateParam = {
+			"network": "bsc",
+			"token": token,
+			"limit": chunk,
+			"after": lastDate
+		}
+
+		result = run_query(transferQuery, newDateParam)
+		
+
+		iterations+=1
+		print(iterations)
+		print('--------------------')
+		print(len(list(walletsWithToken)))
+		print(len(list(DEXset)))
+		print(len(list(smartContractSet)))
+		print(len(list(Tokenset)))
+		print('--------------------')
+		print(len(result["data"]["ethereum"]["transfers"]))
+		print('--------------------')
+		
+
+		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations > 20:
 
 			with open("sends.csv", "a") as sendsCSV:
 				writer = csv.writer(sendsCSV)
@@ -207,18 +266,25 @@ def get_all_transfers(token, chunk):
 					else:
 						smartContractSet.add(item["sender"]["address"])
 
-					# Perform Date Check
+			break
 
-					if item["block"]["timestamp"]["iso8601"] > lastDate:
-						lastDate = item["block"]["timestamp"]["iso8601"]
+	# Write Unique Addresses to CSV from sets
+	with open("address.csv", "a") as addressCSV:
+			writer = csv.writer(addressCSV)
+			for item in list(walletsWithToken):
+				writer.writerow([item,"Wallet","Personal"])
+			for item in list(DEXset):
+				writer.writerow([item,"Smart Contract","DEX"])
+			for item in list(Tokenset):
+				writer.writerow([item,"Smart Contract","Token"])
+			for item in list(smartContractSet):
+				writer.writerow([item,"Smart Contract","Generic"])
 
 
-			print(len(list(walletsWithToken)))
-			print(len(list(DEXset)))
-			print(len(list(smartContractSet)))
-			print(len(list(Tokenset)))
 
-			iterations+=1
+
+
+			
 
 
 """
@@ -227,6 +293,30 @@ Get All Tokens
 ----------------------------------------------------------------------
 """
 def get_all_tokens(walletList):
+
+	tokenHoldingQuery = """
+	($tokenList: [String!])
+	{
+	  ethereum(network: bsc) {
+	    address(
+	      address: {in:$tokenList}
+	    ) {
+	      address
+	      smartContract {
+	        contractType
+	      }
+	      balances {
+	        value
+	        currency {
+	          address
+	          symbol
+	          tokenType
+	        }
+	      }
+	    }
+	  }
+	}
+	"""
 
 	with open("tokens.csv", "w") as tokensCSV:
 		writer = csv.writer(tokensCSV)
@@ -244,7 +334,7 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-get_all_transfers(tokenAddress_SAFEMOON,2000)
+get_all_transfers(tokenAddress_MOONRISE,10000)
 
 # result = run_query(tokenTransferQuery)  # Execute the query
 
