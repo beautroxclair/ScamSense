@@ -19,6 +19,8 @@ tokenAddress_PirateCoin = "0x041640ea980e3fe61e9c4ca26d9007bc70094c15" # 211k tr
 tokenAddress_WEAPON = "0x3664d30a612824617e3cf6935d6c762c8b476eda" #178k Transfers
 tokenAddress_MOONRISE = "0x7ee7f14427cc41d6db17829eb57dc74a26796b9d" #187k Transfers
 
+testWalletList = ["0x6306400da2b38c44d5dbe37097fba0d08ab6527c","0x1fc74c93d12d1ea9034dd87d601cf4d9f19202b8","0x55c6ecfdd1f8043537583a0f90ae40e1919aa966","0xda46f6ee5fca6c68f7d3be0e1758d9076e65c269","0x55dc4e8ed98ced86ec7d0ce6aae249af7a92f6be","0xc1713bbb86913e702dcd3fca2e0384be9e5c8aeb","0x27dce442debba17e71559378c9ad0ab7033af8c8","0x8e37b8970280d7d886d12a74e356fd559679fa61","0xa659cfb316e9f5d7210e0f331dcff02c3939713a","0x9301212e2d3a8122c66b4ed72e8a446e864aee82","0x022d130e57bb62d66cc404425cb4ce429b7cd952","0xe3cd7fcd06b4f3c61e93c9cdda791c263e16bffb","0x87cf7d52d5e16f936ce69b880bcec9860e7a9a4c","0xce1dfbf188adb8ead921e4e1e6553bd1ae7c19a6","0xef7c55bfb3ec25195bea3ffa944537b28815fa1c"]
+
 
 """
 ----------------------------------------------------------------------
@@ -225,7 +227,7 @@ def get_all_transfers(token, chunk):
 		print('--------------------')
 		
 
-		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations > 20:
+		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations > 7:
 
 			with open("sends.csv", "a") as sendsCSV:
 				writer = csv.writer(sendsCSV)
@@ -295,22 +297,18 @@ Get All Tokens
 def get_all_tokens(walletList):
 
 	tokenHoldingQuery = """
-	($tokenList: [String!])
+	query($tokenList: [String!])
 	{
 	  ethereum(network: bsc) {
 	    address(
 	      address: {in:$tokenList}
 	    ) {
 	      address
-	      smartContract {
-	        contractType
-	      }
 	      balances {
 	        value
 	        currency {
 	          address
 	          symbol
-	          tokenType
 	        }
 	      }
 	    }
@@ -318,13 +316,22 @@ def get_all_tokens(walletList):
 	}
 	"""
 
-	with open("tokens.csv", "w") as tokensCSV:
-		writer = csv.writer(tokensCSV)
-		writer.writerow(["Token_ID", "Type", "Symbol"])
+	tokenQueryParams = {
+		"tokenList": walletList
+	}
 
-	with open("has.csv", "w") as hasCSV:
-		writer = csv.writer(hasCSV)
-		writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
+	tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+
+	return tokenResult
+
+
+	# with open("tokens.csv", "w") as tokensCSV:
+	# 	writer = csv.writer(tokensCSV)
+	# 	writer.writerow(["Token_ID", "Type", "Symbol"])
+
+	# with open("owned.csv", "w") as ownedCSV:
+	# 	writer = csv.writer(ownedCSV)
+	# 	writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
 
 
 
@@ -334,8 +341,10 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-get_all_transfers(tokenAddress_MOONRISE,10000)
-
+# get_all_transfers(tokenAddress_MOONRISE,10000)
+tokenQueryResult = get_all_tokens(testWalletList)
+prettyResult = json.dumps(tokenQueryResult, indent = 2, sort_keys= True) # Print for Testing
+print(prettyResult)
 # result = run_query(tokenTransferQuery)  # Execute the query
 
 # prettyResult = json.dumps(result, indent = 2, sort_keys= True) # Print for Testing
