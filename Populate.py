@@ -1,6 +1,7 @@
 import requests
 import json
 import csv
+import math
 
 
 tokenAddress_SAFEMOON= "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3" #9.29mil transfers
@@ -19,7 +20,6 @@ tokenAddress_PirateCoin = "0x041640ea980e3fe61e9c4ca26d9007bc70094c15" # 211k tr
 tokenAddress_WEAPON = "0x3664d30a612824617e3cf6935d6c762c8b476eda" #178k Transfers
 tokenAddress_MOONRISE = "0x7ee7f14427cc41d6db17829eb57dc74a26796b9d" #187k Transfers
 
-testWalletList = ["0x6306400da2b38c44d5dbe37097fba0d08ab6527c","0x1fc74c93d12d1ea9034dd87d601cf4d9f19202b8","0x55c6ecfdd1f8043537583a0f90ae40e1919aa966","0xda46f6ee5fca6c68f7d3be0e1758d9076e65c269","0x55dc4e8ed98ced86ec7d0ce6aae249af7a92f6be","0xc1713bbb86913e702dcd3fca2e0384be9e5c8aeb","0x27dce442debba17e71559378c9ad0ab7033af8c8","0x8e37b8970280d7d886d12a74e356fd559679fa61","0xa659cfb316e9f5d7210e0f331dcff02c3939713a","0x9301212e2d3a8122c66b4ed72e8a446e864aee82","0x022d130e57bb62d66cc404425cb4ce429b7cd952","0xe3cd7fcd06b4f3c61e93c9cdda791c263e16bffb","0x87cf7d52d5e16f936ce69b880bcec9860e7a9a4c","0xce1dfbf188adb8ead921e4e1e6553bd1ae7c19a6","0xef7c55bfb3ec25195bea3ffa944537b28815fa1c"]
 
 
 """
@@ -28,7 +28,10 @@ testWalletList = ["0x6306400da2b38c44d5dbe37097fba0d08ab6527c","0x1fc74c93d12d1e
 Simple Query Post Function with API Key Included
 To Add:
 - better error handling for status code responses
+- 502 Error - Ran out of Memory
+- 504 Error - Timeout
 -- Functionality to switch between API Keys if request limit has been reached
+
 
 ----------------------------------------------------------------------
 """
@@ -196,7 +199,7 @@ def get_all_transfers(token, chunk):
 		print('--------------------')
 		
 
-		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations > 7:
+		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations >= 3:
 
 			with open("sends.csv", "a") as sendsCSV:
 				writer = csv.writer(sendsCSV)
@@ -251,6 +254,7 @@ def get_all_transfers(token, chunk):
 			for item in list(smartContractSet):
 				writer.writerow([item,"Smart Contract","Generic"])
 
+	return list(walletsWithToken)
 
 
 
@@ -264,6 +268,18 @@ Get All Tokens
 ----------------------------------------------------------------------
 """
 def get_all_tokens(walletList):
+
+	# Initialize the CSVs
+	with open("tokens.csv", "w") as tokensCSV:
+		writer = csv.writer(tokensCSV)
+		writer.writerow(["Token_ID", "Type", "Symbol"])
+
+	with open("owned.csv", "w") as ownedCSV:
+		writer = csv.writer(ownedCSV)
+		writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
+
+	tokens = []
+
 
 	tokenHoldingQuery = """
 	query($tokenList: [String!])
@@ -285,23 +301,60 @@ def get_all_tokens(walletList):
 	}
 	"""
 
-	tokenQueryParams = {
-		"tokenList": walletList
-	}
 
-	tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+	# Execute Query in chunks of 250
+	for i in range(math.ceil(len(walletList)/250)):
+		
+		tokenQueryParams = None
 
-	return tokenResult
+		if i*250+250 > len(walletList):
+			tokenQueryParams = {
+				"tokenList": walletList[i*250:]
+			}
+		else:
+			tokenQueryParams = {
+				"tokenList": walletList[i*250:i*250+250]
+			}
+		
+		print("Query {} of {}".format(i+1,math.ceil(len(walletList)/250)))
+		tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+		tokens = write_token_chunk(tokenResult,tokens)
+
+	with open("tokens.csv", "a") as tokensCSV:
+		writer = csv.writer(tokensCSV)
+		for item in tokens:
+			writer.writerow([item["address"],"TOKEN",item["symbol"]])
+	
+
+def write_token_chunk(chunk,tokenList):
+	with open("owned.csv","a") as ownedCSV:
+		writer = csv.writer(ownedCSV)
+		for item in chunk["data"]["ethereum"]["address"]:
+			for obj in item["balances"]:
+
+				if obj["value"] > 0:
+					writer.writerow([item["address"],obj["currency"]["address"],"OWNS",obj["value"]])
+				else:
+					writer.writerow([item["address"],obj["currency"]["address"],"OWNED",obj["value"]])
+
+				tokenList.append({"address":obj["currency"]["address"],"symbol":obj["currency"]["symbol"]})
 
 
-	# with open("tokens.csv", "w") as tokensCSV:
-	# 	writer = csv.writer(tokensCSV)
-	# 	writer.writerow(["Token_ID", "Type", "Symbol"])
+				# prettyObj = json.dumps(obj, indent = 2, sort_keys= True) # Print for Testing
+				# print(prettyObj)
 
-	# with open("owned.csv", "w") as ownedCSV:
-	# 	writer = csv.writer(ownedCSV)
-	# 	writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
+	tokenList = list({v['address']:v for v in tokenList}.values())
 
+	return tokenList
+
+
+# Test
+
+# tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+# return tokenResult
+
+
+	
 
 
 """
@@ -310,10 +363,21 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-# get_all_transfers(tokenAddress_MOONRISE,10000)
-tokenQueryResult = get_all_tokens(testWalletList)
-prettyResult = json.dumps(tokenQueryResult, indent = 2, sort_keys= True) # Print for Testing
-print(prettyResult)
+walletList = get_all_transfers(tokenAddress_MOONRISE,10000)
+get_all_tokens(walletList)
+
+
+
+# prettyResult = json.dumps(allTokens, indent = 2, sort_keys= True) # Print for Testing
+# with open("tokens.json", "w") as outfile:
+#     outfile.write(prettyResult)
+	
+
+
+
+# tokenQueryResult = get_all_tokens(testWalletList)
+# prettyResult = json.dumps(tokenQueryResult, indent = 2, sort_keys= True) # Print for Testing
+# print(prettyResult)
 # result = run_query(tokenTransferQuery)  # Execute the query
 
 # prettyResult = json.dumps(result, indent = 2, sort_keys= True) # Print for Testing
@@ -457,84 +521,6 @@ CREATE (s)-[:SEND {amount:row["amount:float"], block:row.block, time:row.time, h
 ----------------------------------------------------------------------
 Queries to be implemented
 ----------------------------------------------------------------------
-
-
-Token Transfers
-{
-  ethereum(network: bsc) {
-    transfers(
-      currency: {is: "0x8076c74c5e3f5852037f31ff0093eeb8c8add8d3"}
-      options: {limit: 10}
-    ) {
-      amount
-      receiver {
-        address
-      }
-      sender {
-        address
-      }
-      block {
-        timestamp {
-          time
-        }
-        height
-      }
-      transaction {
-        hash
-      }
-      count
-    }
-  }
-}
-
-Token Amounts of Wallets
-{
-  ethereum(network: bsc) {
-    address(
-      address: {in: ["0xff3dd404afba451328de089424c74685bf0a43c9", "0xacf29a85e341c7fb05d2755e2f83c36afe5cfeeb", "0x8c128dba2cb66399341aa877315be1054be75da8"]}
-    ) {
-      address
-      smartContract {
-        contractType
-      }
-      balances {
-        value
-        currency {
-          address
-          symbol
-          tokenType
-        }
-      }
-    }
-  }
-}
-
-
-Possibe Responses:(?)
-
-{
-  "ethereum": {
-    "address": [
-      {
-        "address": "0xff3dd404afba451328de089424c74685bf0a43c9",
-        "smartContract": {
-          "contractType": "DEX"
-        }
-      },
-      {
-        "address": "0xacf29a85e341c7fb05d2755e2f83c36afe5cfeeb",
-        "smartContract": null
-      },
-      {
-        "address": "0x8c128dba2cb66399341aa877315be1054be75da8",
-        "smartContract": {
-          "contractType": "Generic"
-        }
-      }
-    ]
-  }
-}
-
 
 
 DEX Trades
