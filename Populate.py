@@ -317,8 +317,12 @@ def get_all_tokens(walletList):
 			}
 		
 		print("Query {} of {}".format(i+1,math.ceil(len(walletList)/250)))
-		tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
-		tokens = write_token_chunk(tokenResult,tokens)
+		try:
+			tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+			tokens = write_token_chunk(tokenResult,tokens)
+		except:
+			print("Query {} of {} failed".format(i+1,math.ceil(len(walletList)/250)))
+			pass
 
 	with open("tokens.csv", "a") as tokensCSV:
 		writer = csv.writer(tokensCSV)
@@ -371,54 +375,6 @@ get_all_tokens(walletList)
 # prettyResult = json.dumps(allTokens, indent = 2, sort_keys= True) # Print for Testing
 # with open("tokens.json", "w") as outfile:
 #     outfile.write(prettyResult)
-	
-
-
-
-# tokenQueryResult = get_all_tokens(testWalletList)
-# prettyResult = json.dumps(tokenQueryResult, indent = 2, sort_keys= True) # Print for Testing
-# print(prettyResult)
-# result = run_query(tokenTransferQuery)  # Execute the query
-
-# prettyResult = json.dumps(result, indent = 2, sort_keys= True) # Print for Testing
-# print(prettyResult)
-
-# export_to_csv(result) # Send to CSV Converter
-
-
-
-
-"""
-----------------------------------------------------------------------
-JSON -> CSV Conversion Module
-----------------------------------------------------------------------
-"""
-
-
-def export_to_csv(data):
-
-	with open("wallets.csv", "w") as walletsCSV:
-		with open("sends.csv", "w") as sendsCSV:
-			writer1 = csv.writer(walletsCSV)
-			writer2 = csv.writer(sendsCSV)
-
-			writer1.writerow(['Public Key', 'Type', 'Tokens Held'])
-			writer2.writerow([':START_ID', ':END_ID', ":TYPE"])
-
-			for item in data["data"]["ethereum"]["transfers"]:
-
-				amount = item["amount"]
-				block = item["block"]["height"]
-				timestamp = item["block"]["timestamp"]["time"]
-				receiver = item["receiver"]["address"]
-				sender = item["sender"]["address"]
-				txHash = item["transaction"]["hash"]
-
-				writer1.writerow([sender, "WALLET"])
-				writer1.writerow([receiver, "WALLET"])
-
-				writer2.writerow([sender, receiver, "SEND", amount, block, timestamp, txHash])
-				
 
 
 
