@@ -65,8 +65,7 @@ def get_all_transfers(token, chunk):
 				currency: {is:$token}
 				options: {
 					limit: $limit
-			        asc: "date.date"
-			        desc: "block.timestamp.iso8601"
+			        asc: "block.timestamp.iso8601"
 				}
 				date: {after: $after}	
 			){
@@ -109,7 +108,7 @@ def get_all_transfers(token, chunk):
 
 	# Make First Call
 	result = run_query(transferQuery, transferQueryParams)
-	
+	lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
 
 	# Create CSVs with Headers
 	with open("address.csv", "w") as addressCSV:
@@ -130,77 +129,14 @@ def get_all_transfers(token, chunk):
 	# Iterate through all transactions in batches of "chunk"
 	while True:
 
-		lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
-
-		with open("sends.csv", "a") as sendsCSV:
-			writer = csv.writer(sendsCSV)
-
-			for item in result["data"]["ethereum"]["transfers"]:
-
-
-				# Write to sends.csv
-
-				writer.writerow([
-					item["sender"]["address"],
-					item["receiver"]["address"],
-					"SEND",
-					item["amount"],
-					item["block"]["height"],
-					item["block"]["timestamp"]["iso8601"],
-					item["transaction"]["hash"]
-				])
+		if result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"] is None:
+			print(result)
+			pass
+		else:
+			lastDate = result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"]
 
 
-				# Separate Different Address Types into unique sets
-
-				if item["receiver"]["smartContract"]["contractType"] is None:
-					walletsWithToken.add(item["receiver"]["address"])
-				elif item["receiver"]["smartContract"]["contractType"] == "DEX":
-					DEXset.add(item["receiver"]["address"])
-				elif item["receiver"]["smartContract"]["contractType"] == "Token":
-					Tokenset.add(item["receiver"]["address"])
-				else:
-					smartContractSet.add(item["receiver"]["address"])
-
-				if item["sender"]["smartContract"]["contractType"] is None:
-					walletsWithToken.add(item["sender"]["address"])
-				elif item["sender"]["smartContract"]["contractType"] == "DEX":
-					DEXset.add(item["sender"]["address"])
-				elif item["sender"]["smartContract"]["contractType"] == "Token":
-					Tokenset.add(item["sender"]["address"])
-				else:
-					smartContractSet.add(item["sender"]["address"])
-
-				# Perform Date Check
-				# Needs Debugging - Not Getting all Transfers and I suspect the problem lies here
-
-				if item["block"]["timestamp"]["iso8601"] > lastDate:
-					lastDate = item["block"]["timestamp"]["iso8601"]
-
-		newDateParam = {
-			"network": "bsc",
-			"token": token,
-			"limit": chunk,
-			"after": lastDate
-		}
-
-		result = run_query(transferQuery, newDateParam)
-		
-
-		iterations+=1
-		print(iterations)
-		print('--------------------')
-		print(len(list(walletsWithToken)))
-		print(len(list(DEXset)))
-		print(len(list(smartContractSet)))
-		print(len(list(Tokenset)))
-		print('--------------------')
-		print(len(result["data"]["ethereum"]["transfers"]))
-		print('--------------------')
-		
-
-		if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations >= 3:
-
+			# Write Sends and Extract Addresses
 			with open("sends.csv", "a") as sendsCSV:
 				writer = csv.writer(sendsCSV)
 
@@ -240,7 +176,78 @@ def get_all_transfers(token, chunk):
 					else:
 						smartContractSet.add(item["sender"]["address"])
 
-			break
+					# Perform Date Check
+					# Needs Debugging - Not Getting all Transfers and I suspect the problem lies here
+
+					if item["block"]["timestamp"]["iso8601"] > lastDate:
+						lastDate = item["block"]["timestamp"]["iso8601"]
+
+				print("---------------")
+				print("Query {}: {}".format(iterations+1,lastDate))
+				iterations+=1
+
+
+		newDateParam = {
+			"network": "bsc",
+			"token": token,
+			"limit": chunk,
+			"after": lastDate
+		}
+
+		try:
+			result = run_query(transferQuery, newDateParam)
+			if result["data"]["ethereum"]["transfers"][0]["block"]["timestamp"]["iso8601"] is None:
+				print(result)
+				pass
+			else:
+		
+				if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations >= 50:
+
+					print("---------------")
+					print("Query {}: {}".format(iterations+1,lastDate))
+
+					with open("sends.csv", "a") as sendsCSV:
+						writer = csv.writer(sendsCSV)
+
+						for item in result["data"]["ethereum"]["transfers"]:
+
+
+							# Write to sends.csv
+
+							writer.writerow([
+								item["sender"]["address"],
+								item["receiver"]["address"],
+								"SEND",
+								item["amount"],
+								item["block"]["height"],
+								item["block"]["timestamp"]["iso8601"],
+								item["transaction"]["hash"]
+							])
+
+
+							# Separate Different Address Types into unique sets
+
+							if item["receiver"]["smartContract"]["contractType"] is None:
+								walletsWithToken.add(item["receiver"]["address"])
+							elif item["receiver"]["smartContract"]["contractType"] == "DEX":
+								DEXset.add(item["receiver"]["address"])
+							elif item["receiver"]["smartContract"]["contractType"] == "Token":
+								Tokenset.add(item["receiver"]["address"])
+							else:
+								smartContractSet.add(item["receiver"]["address"])
+
+							if item["sender"]["smartContract"]["contractType"] is None:
+								walletsWithToken.add(item["sender"]["address"])
+							elif item["sender"]["smartContract"]["contractType"] == "DEX":
+								DEXset.add(item["sender"]["address"])
+							elif item["sender"]["smartContract"]["contractType"] == "Token":
+								Tokenset.add(item["sender"]["address"])
+							else:
+								smartContractSet.add(item["sender"]["address"])
+
+					break
+		except:
+			pass
 
 	# Write Unique Addresses to CSV from sets
 	with open("address.csv", "a") as addressCSV:
@@ -279,6 +286,7 @@ def get_all_tokens(walletList):
 		writer.writerow(["START_ID", "END_ID", "TYPE", "Amount"])
 
 	tokens = []
+	trigger = False
 
 
 	tokenHoldingQuery = """
@@ -322,6 +330,24 @@ def get_all_tokens(walletList):
 			tokens = write_token_chunk(tokenResult,tokens)
 		except:
 			print("Query {} of {} failed".format(i+1,math.ceil(len(walletList)/250)))
+			try:
+				print("Query {} of {} retry".format(i+1,math.ceil(len(walletList)/250)))
+				tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
+				tokens = write_token_chunk(tokenResult,tokens)
+			except:
+				print("Query {} of {} failed again".format(i+1,math.ceil(len(walletList)/250)))
+				if trigger == False:
+					with open("errors.csv","w") as errorsCSV:
+						errorWriter = csv.writer(errorsCSV)
+						for j in walletList[i*250:i*250+250]:
+							errorWriter.writerow([j])
+				else:
+					with open("errors.csv","a") as errorsCSV:
+						errorWriter = csv.writer(errorsCSV)
+						for j in walletList[i*250:i*250+250]:
+							errorWriter.writerow([j])
+				trigger = True
+				pass
 			pass
 
 	with open("tokens.csv", "a") as tokensCSV:
@@ -367,7 +393,7 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-walletList = get_all_transfers(tokenAddress_MOONRISE,10000)
+walletList = get_all_transfers(tokenAddress_POOCOIN,100000)
 get_all_tokens(walletList)
 
 
