@@ -1,4 +1,4 @@
-import requests
+	 import requests
 import json
 import csv
 import math
@@ -35,10 +35,10 @@ To Add:
 
 ----------------------------------------------------------------------
 """
-
+##API KEY - BQY9Rwp5LBgFHnp440ilWi0xk7tUxIZQ
 
 def run_query(query, variables = {}):  # A simple function to use requests.post to make the API call.
-    headers = {'X-API-KEY': 'BQYq2Lq2oo8E55XwYQkCwb8zfA3kb4QT'}
+    headers = {'X-API-KEY': 'YOUR_API_KEY'}
     request = requests.post('https://graphql.bitquery.io/',
                             json={'query': query, 'variables': variables}, headers=headers)
     if request.status_code == 200:
@@ -65,7 +65,7 @@ def get_all_transfers(token, chunk):
 				currency: {is:$token}
 				options: {
 					limit: $limit
-			        asc: "block.timestamp.iso8601"
+			        desc: "block.timestamp.iso8601"
 				}
 				date: {after: $after}	
 			){
@@ -201,7 +201,7 @@ def get_all_transfers(token, chunk):
 				pass
 			else:
 		
-				if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations >= 50:
+				if len(result["data"]["ethereum"]["transfers"]) != chunk or iterations >= 200:
 
 					print("---------------")
 					print("Query {}: {}".format(iterations+1,lastDate))
@@ -245,7 +245,11 @@ def get_all_transfers(token, chunk):
 							else:
 								smartContractSet.add(item["sender"]["address"])
 
+
+					print("---------------")
+					print("---------------")
 					break
+
 		except:
 			pass
 
@@ -323,7 +327,7 @@ def get_all_tokens(walletList):
 			tokenQueryParams = {
 				"tokenList": walletList[i*250:i*250+250]
 			}
-		
+		print("---------------")
 		print("Query {} of {}".format(i+1,math.ceil(len(walletList)/250)))
 		try:
 			tokenResult = run_query(tokenHoldingQuery, tokenQueryParams)
@@ -354,7 +358,8 @@ def get_all_tokens(walletList):
 		writer = csv.writer(tokensCSV)
 		for item in tokens:
 			writer.writerow([item["address"],"TOKEN",item["symbol"]])
-	
+	print("---------------")
+	print("---------------")
 
 def write_token_chunk(chunk,tokenList):
 	with open("owned.csv","a") as ownedCSV:
@@ -393,7 +398,7 @@ Query Execution
 ----------------------------------------------------------------------
 """
 
-walletList = get_all_transfers(tokenAddress_POOCOIN,100000)
+walletList = get_all_transfers(tokenAddress_SAFEMOON,10000)
 get_all_tokens(walletList)
 
 
@@ -487,13 +492,16 @@ Upload Module
 Naiive Load commands in Neo4j Desktop
 
 
-LOAD CSV WITH HEADERS FROM "file:///wallets.csv" AS row
-MERGE (w:Wallet {wallet_id: row[":ID"]})
+LOAD CSV WITH HEADERS FROM "file:///address.csv" AS row
+MERGE (a:Address {public_key: row["Public Key"],type:row["Type"],kind:[row["Kind"]]})
+
+LOAD CSV WITH HEADERS FROM "file:///tokensTransformed.csv" AS row
+CREATE (t:Token {token_id: row["Token_ID"],type:row["Type"],symbol:[row["Symbol"]]})
 
 LOAD CSV WITH HEADERS FROM "file:///sends.csv" AS row
-MATCH (s:Wallet {wallet_id: row[":START_ID"]})
-MATCH (r:Wallet {wallet_id: row[":END_ID"]})
-CREATE (s)-[:SEND {amount:row["amount:float"], block:row.block, time:row.time, hash:row.hash}]->(r)
+MATCH (a:Address {public_key: row["Start_ID"]})
+MATCH (b:Address {public_key: row["END_ID"]})
+CREATE (a)-[:SEND {amount:row["Amount"], block:row["Block"], time:row["Time"], hash:row["hash"]}]->(b)
 
 ----------------------------------------------------------------------
 """
@@ -629,6 +637,9 @@ gas
 ----------------------------------------------------------------------
 Resources
 ----------------------------------------------------------------------
+
+Parallelization:
+https://medium.com/swlh/parallel-asynchronous-api-call-in-python-f6aa663206c6
 
 Cypher Query Documentation:
 https://neo4j.com/developer/cypher/
